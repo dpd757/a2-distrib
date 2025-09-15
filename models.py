@@ -55,6 +55,49 @@ class NeuralSentimentClassifier(SentimentClassifier):
     def __init__(self):
         raise NotImplementedError
 
+    def predict(self, ex_words: List[str], has_typos: bool) -> int:
+        """
+        Makes a prediction on the given sentence
+        :param ex_words: words to predict on
+        :param has_typos: True if we are evaluating on data that potentially has typos, False otherwise. If you do
+        spelling correction, this parameter allows you to only use your method for the appropriate dev eval in Q3
+        and not otherwise
+        :return: 0 or 1 with the label
+        """
+        raise NotImplementedError
+
+class FFNN(nn.Module):
+    def __init__(self):
+        super(FFNN, self).__init__()
+        self.lin1 = nn.Linear(300, 300)
+        self.relu1 = nn.ReLU()
+        self.lin2 = nn.Linear(300, 2) #300)
+        self.log_softmax = nn.LogSoftmax(dim=0)
+
+    def forward(self, x):
+        # Sum
+        # x = np.array(x)
+        # x = torch.from_numpy(x)
+        # x = torch.tensor(x, dtype=torch.double)
+        x = torch.mean(x, dim=0, keepdim=False)
+        x = self.lin1(x)
+        x = self.relu1(x)
+        x = self.lin2(x)
+        x = self.relu1(x)
+        x = self.log_softmax(x)
+
+        return x
+
+
+def form_input(x) -> torch.Tensor:
+    """
+    Form the input to the neural network. In general this may be a complex function that synthesizes multiple pieces
+    of data, does some computation, handles batching, etc.
+
+    :param x: a [num_samples x inp] numpy array containing input data
+    :return: a [num_samples x inp] Tensor
+    """
+    return torch.from_numpy(x).float()
 
 def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_exs: List[SentimentExample],
                                  word_embeddings: WordEmbeddings, train_model_for_typo_setting: bool) -> NeuralSentimentClassifier:
@@ -68,5 +111,35 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
     and return an instance of that for the typo setting if you want; you're allowed to return two different model types
     for the two settings.
     """
-    raise NotImplementedError
+
+    ffnn: FFNN = FFNN()
+
+    optimizer = optim.Adam(ffnn.parameters(), lr=args.lr)
+
+    for epoch in range(0, args.num_epochs):
+        ex_indices = [i for i in range(0, len(train_exs))]
+        random.shuffle(ex_indices)
+
+        total_loss = 0
+        for idx in ex_indices:
+            ex_words = train_exs[idx]
+            ex_embedding = [word_embeddings.get_embedding(word) for word in ex_words.words]
+            ex_embedding_tensor_list = [torch.from_numpy(arr).float() for arr in ex_embedding]
+            # ex_embedding_tensor_list = torch.from_numpy([arr for arr in ex_embedding]).float()
+            # ex_embedding_tensor_list = torch.from_numpy(np.array(ex_embedding))#.float()
+            stacked = torch.stack(ex_embedding_tensor_list)
+
+            # Zero out
+            ffnn.zero_grad()
+            log_probs = ffnn.forward(stacked)
+
+            loss_fn = nn.NLLLoss()
+            loss = loss_fn(log_probs, torch.as_tensor(ex_words.label))
+            #loss = torch.neg(log_probs).dot(y_onehot)
+            total_loss += loss
+
+            # Computes the gradient and takes the optimizer step
+            loss.backward()
+            optimizer.step()
+        print("epoch: {}, total_loss: {}".format(epoch, total_loss))
 
