@@ -36,36 +36,6 @@ class SentimentClassifier(object):
         return [self.predict(ex_words, has_typos) for ex_words in all_ex_words]
 
 
-class TrivialSentimentClassifier(SentimentClassifier):
-    def predict(self, ex_words: List[str], has_typos: bool) -> int:
-        """
-        :param ex:
-        :return: 1, always predicts positive class
-        """
-        return 1
-
-
-class NeuralSentimentClassifier(SentimentClassifier):
-    """
-    Implement your NeuralSentimentClassifier here. This should wrap an instance of the network with learned weights
-    along with everything needed to run it on new data (word embeddings, etc.). You will need to implement the predict
-    method and you can optionally override predict_all if you want to use batching at inference time (not necessary,
-    but may make things faster!)
-    """
-    def __init__(self):
-        raise NotImplementedError
-
-    def predict(self, ex_words: List[str], has_typos: bool) -> int:
-        """
-        Makes a prediction on the given sentence
-        :param ex_words: words to predict on
-        :param has_typos: True if we are evaluating on data that potentially has typos, False otherwise. If you do
-        spelling correction, this parameter allows you to only use your method for the appropriate dev eval in Q3
-        and not otherwise
-        :return: 0 or 1 with the label
-        """
-        raise NotImplementedError
-
 class FFNN(nn.Module):
     def __init__(self):
         super(FFNN, self).__init__()
@@ -87,6 +57,46 @@ class FFNN(nn.Module):
         x = self.log_softmax(x)
 
         return x
+
+class TrivialSentimentClassifier(SentimentClassifier):
+    def predict(self, ex_words: List[str], has_typos: bool) -> int:
+        """
+        :param ex:
+        :return: 1, always predicts positive class
+        """
+        return 1
+
+
+class NeuralSentimentClassifier(SentimentClassifier):
+    """
+    Implement your NeuralSentimentClassifier here. This should wrap an instance of the network with learned weights
+    along with everything needed to run it on new data (word embeddings, etc.). You will need to implement the predict
+    method and you can optionally override predict_all if you want to use batching at inference time (not necessary,
+    but may make things faster!)
+    """
+    def __init__(self, ffnn: FFNN, word_embeddings: WordEmbeddings):
+        super(NeuralSentimentClassifier, self).__init__()
+        self.ffnn = ffnn
+        self.word_embeddings = word_embeddings
+
+    def predict(self, ex_words: List[str], has_typos: bool) -> int:
+        """
+        Makes a prediction on the given sentence
+        :param ex_words: words to predict on
+        :param has_typos: True if we are evaluating on data that potentially has typos, False otherwise. If you do
+        spelling correction, this parameter allows you to only use your method for the appropriate dev eval in Q3
+        and not otherwise
+        :return: 0 or 1 with the label
+        """
+        if has_typos:
+            raise NotImplementedError
+        else:
+            ex_embedding = [self.word_embeddings.get_embedding(word) for word in ex_words]
+            ex_embedding_tensor_list = [torch.from_numpy(arr).float() for arr in ex_embedding]
+            stacked = torch.stack(ex_embedding_tensor_list)
+
+            pred_vec = self.ffnn.forward(stacked)
+            return torch.argmax(pred_vec)
 
 
 def form_input(x) -> torch.Tensor:
@@ -143,3 +153,5 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
             optimizer.step()
         print("epoch: {}, total_loss: {}".format(epoch, total_loss))
 
+    neuralSentimentClassifier: NeuralSentimentClassifier = NeuralSentimentClassifier(ffnn, word_embeddings)
+    return neuralSentimentClassifier
