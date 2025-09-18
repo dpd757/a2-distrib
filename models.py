@@ -41,6 +41,7 @@ class FFNN(nn.Module):
         super(FFNN, self).__init__()
         self.lin1 = nn.Linear(300, 300)
         self.relu1 = nn.ReLU()
+        self.lin12 = nn.Linear(300, 300)
         self.lin2 = nn.Linear(300, 2) #300)
         self.log_softmax = nn.LogSoftmax(dim=0)
 
@@ -51,6 +52,8 @@ class FFNN(nn.Module):
         # x = torch.tensor(x, dtype=torch.double)
         x = torch.mean(x, dim=0, keepdim=False)
         x = self.lin1(x)
+        x = self.relu1(x)
+        x = self.lin12(x)
         x = self.relu1(x)
         x = self.lin2(x)
         x = self.relu1(x)
