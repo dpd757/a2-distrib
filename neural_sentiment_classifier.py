@@ -4,6 +4,9 @@ import argparse
 import json
 import sys
 import time
+
+import torch
+
 from models import *
 from sentiment_data import *
 from typing import List
@@ -96,6 +99,8 @@ def print_evaluation(golds: List[int], predictions: List[int]):
 if __name__ == '__main__':
     args = _parse_args()
     print(args)
+
+    torch.manual_seed(1234)
 
     # Load train, dev, and test exs and index the words.
     train_exs = read_sentiment_examples(args.train_path)
