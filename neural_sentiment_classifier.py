@@ -101,6 +101,7 @@ if __name__ == '__main__':
     print(args)
 
     torch.manual_seed(1234)
+    random.seed(1234)
 
     # Load train, dev, and test exs and index the words.
     train_exs = read_sentiment_examples(args.train_path)
