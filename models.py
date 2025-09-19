@@ -50,7 +50,7 @@ class FFNN(nn.Module):
         # x = np.array(x)
         # x = torch.from_numpy(x)
         # x = torch.tensor(x, dtype=torch.double)
-        x = torch.mean(x, dim=0, keepdim=False)
+        # x = torch.mean(x, dim=0, keepdim=False)
         x = self.lin1(x)
         x = self.relu1(x)
         x = self.lin12(x)
@@ -91,15 +91,17 @@ class NeuralSentimentClassifier(SentimentClassifier):
         and not otherwise
         :return: 0 or 1 with the label
         """
-        # if has_typos:
-        #     raise NotImplementedError
-        # else:
-        ex_embedding = [self.word_embeddings.get_embedding(word) for word in ex_words]
-        ex_embedding_tensor_list = [torch.from_numpy(arr).float() for arr in ex_embedding]
-        stacked = torch.stack(ex_embedding_tensor_list)
+        if has_typos:
+            raise NotImplementedError
+        else:
+        # ex_embedding = [self.word_embeddings.get_embedding(word) for word in ex_words]
+        # ex_embedding_tensor_list = [torch.from_numpy(arr).float() for arr in ex_embedding]
+        # stacked = torch.stack(ex_embedding_tensor_list)
 
-        pred_vec = self.ffnn.forward(stacked)
-        return torch.argmax(pred_vec)
+            stacked = torch.mean(torch.stack([torch.from_numpy(self.word_embeddings.get_embedding(word)).float() for word in ex_words]), 0)
+            pred_vec = self.ffnn.forward(stacked)
+            return torch.argmax(pred_vec)
+
 
 
 def form_input(x) -> torch.Tensor:
@@ -131,39 +133,39 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
     loss_fn = nn.NLLLoss()
 
     for epoch in range(0, args.num_epochs):
-        ex_indices = [i for i in range(0, len(train_exs))]
-        random.shuffle(ex_indices)
+        ex_indices_agg = [i for i in range(0, len(train_exs))]
+        random.shuffle(ex_indices_agg)
+
+        ex_indices_batched = [ex_indices_agg[i:i+args.batch_size] for i in range(0, len(ex_indices_agg), args.batch_size)]
 
         total_loss = 0
-        batch_i = 0
-        batch_size = 64
-        max_size = len(train_exs)
+        # batch_i = 0
+        # batch_size = 64
+        # max_size = len(train_exs)
+        #
 
-        for idx in ex_indices:
-            ex_words = train_exs[idx]
-            ex_embedding = [word_embeddings.get_embedding(word) for word in ex_words.words]
-            ex_embedding_tensor_list = [torch.from_numpy(arr).float() for arr in ex_embedding]
-            # ex_embedding_tensor_list = torch.from_numpy([arr for arr in ex_embedding]).float()
-            # ex_embedding_tensor_list = torch.from_numpy(np.array(ex_embedding))#.float()
-            stacked = torch.stack(ex_embedding_tensor_list)
+        for ex_indices in ex_indices_batched:
+
+            stacked = torch.stack([torch.mean(torch.stack([torch.from_numpy(word_embeddings.get_embedding(word)).float() for word in train_exs[i].words]), 0) for i in ex_indices])
 
             # Zero out
             ffnn.zero_grad()
             log_probs = ffnn.forward(stacked)
 
-            loss = loss_fn(log_probs, torch.as_tensor(ex_words.label))
+            labels = [train_exs[i].label for i in ex_indices]
+            loss = loss_fn(log_probs, torch.as_tensor(labels))
 
-            batch_i = batch_i + 1
+        #     batch_i = batch_i + 1
+        #
+        #     if batch_i == batch_size or batch_i == max_size:
+        #
+            total_loss += loss
 
-            if batch_i == batch_size or batch_i == max_size:
+            # Computes the gradient and takes the optimizer step
+            loss.backward()
+            optimizer.step()
 
-                total_loss += loss
-
-                # Computes the gradient and takes the optimizer step
-                loss.backward()
-                optimizer.step()
-
-                batch_i = 0
+        #         batch_i = 0
 
         print("epoch: {}, total_loss: {}".format(epoch, total_loss))
 
