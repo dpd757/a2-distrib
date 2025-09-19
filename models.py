@@ -91,15 +91,15 @@ class NeuralSentimentClassifier(SentimentClassifier):
         and not otherwise
         :return: 0 or 1 with the label
         """
-        if has_typos:
-            raise NotImplementedError
-        else:
-            ex_embedding = [self.word_embeddings.get_embedding(word) for word in ex_words]
-            ex_embedding_tensor_list = [torch.from_numpy(arr).float() for arr in ex_embedding]
-            stacked = torch.stack(ex_embedding_tensor_list)
+        # if has_typos:
+        #     raise NotImplementedError
+        # else:
+        ex_embedding = [self.word_embeddings.get_embedding(word) for word in ex_words]
+        ex_embedding_tensor_list = [torch.from_numpy(arr).float() for arr in ex_embedding]
+        stacked = torch.stack(ex_embedding_tensor_list)
 
-            pred_vec = self.ffnn.forward(stacked)
-            return torch.argmax(pred_vec)
+        pred_vec = self.ffnn.forward(stacked)
+        return torch.argmax(pred_vec)
 
 
 def form_input(x) -> torch.Tensor:
