@@ -55,6 +55,12 @@ class NeuralSentimentClassifier(SentimentClassifier):
     def __init__(self):
         raise NotImplementedError
 
+class FFNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return x
 
 def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_exs: List[SentimentExample],
                                  word_embeddings: WordEmbeddings, train_model_for_typo_setting: bool) -> NeuralSentimentClassifier:
@@ -68,5 +74,37 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
     and return an instance of that for the typo setting if you want; you're allowed to return two different model types
     for the two settings.
     """
-    raise NotImplementedError
 
+    # Convert words to word indexes
+    train_exs_word_indices = [[word_embeddings.word_indexer.index_of(word) for word in ex.words] for ex in train_exs]
+
+    # Retrieve the length of the longest sentence
+    max_length = len(max(train_exs_word_indices, key = len))
+
+    # Pad with 0's
+    padded_train_exs_word_indices = [sublist + [0]*(max_length - len(sublist)) for sublist in train_exs_word_indices]
+
+    # Create architecture
+    ffnn: FFNN = FFNN()
+    # optimizer = optim.Adam(ffnn.parameters(), lr=args.lr)
+
+    # Loop over epochs
+    for epoch in range(args.num_epochs):
+
+        # Define training example indices
+        epoch_iteration_indices = [i for i in range(len(train_exs))]
+        random.shuffle(epoch_iteration_indices)
+
+        # Define batches
+        epoch_batch_indices = [epoch_iteration_indices[i:i+args.batch_size] for i in range(0, len(epoch_iteration_indices), args.batch_size)]
+        #epoch_batch_indices = [[epoch_iteration_indices[i]] for i in epoch_iteration_indices]
+
+        batched_data = [[torch.tensor([padded_train_exs_word_indices[index] for index in batch]),
+                         torch.tensor([train_exs[index].label for index in batch])] for batch in epoch_batch_indices]
+        # torched_data = torch.from_numpy(batched_data)
+
+        for batch_data, batch_labels in batched_data:
+            ffnn.zero_grad()
+            log_probs = ffnn.forward(batch_data)
+            # loss.backward()
+            optimizer.step()
