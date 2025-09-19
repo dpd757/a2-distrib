@@ -100,8 +100,8 @@ if __name__ == '__main__':
     args = _parse_args()
     print(args)
 
-    torch.manual_seed(1234)
-    random.seed(1234)
+    torch.manual_seed(12) # also try 12 as seed
+    random.seed(12)
 
     # Load train, dev, and test exs and index the words.
     train_exs = read_sentiment_examples(args.train_path)
