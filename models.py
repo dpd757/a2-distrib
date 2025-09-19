@@ -56,10 +56,12 @@ class NeuralSentimentClassifier(SentimentClassifier):
         raise NotImplementedError
 
 class FFNN(nn.Module):
-    def __init__(self):
+    def __init__(self, embedding):
         super().__init__()
+        self.embedding = embedding
 
     def forward(self, x):
+        x = self.embedding(x)
         return x
 
 def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_exs: List[SentimentExample],
@@ -78,14 +80,17 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
     # Convert words to word indexes
     train_exs_word_indices = [[word_embeddings.word_indexer.index_of(word) for word in ex.words] for ex in train_exs]
 
+    # Replace any -1's with 1's for unknown
+    fixed_train_exs_word_indices = [[index if index != -1 else 1 for index in ex] for ex in train_exs_word_indices]
+
     # Retrieve the length of the longest sentence
-    max_length = len(max(train_exs_word_indices, key = len))
+    max_length = len(max(fixed_train_exs_word_indices, key = len))
 
     # Pad with 0's
-    padded_train_exs_word_indices = [sublist + [0]*(max_length - len(sublist)) for sublist in train_exs_word_indices]
+    padded_train_exs_word_indices = [sublist + [0]*(max_length - len(sublist)) for sublist in fixed_train_exs_word_indices]
 
     # Create architecture
-    ffnn: FFNN = FFNN()
+    ffnn: FFNN = FFNN(word_embeddings.get_initialized_embedding_layer(True, 0))
     # optimizer = optim.Adam(ffnn.parameters(), lr=args.lr)
 
     # Loop over epochs
