@@ -60,12 +60,17 @@ class FFNN(nn.Module):
         super().__init__()
         self.embedding = embedding
         self.ln = nn.Linear(300, 300)
+        self.relu = nn.ReLU()
+        self.ln2 = nn.Linear(300, 300)
         self.log_softmax = nn.LogSoftmax(dim=0)
 
     def forward(self, x):
         x = self.embedding(x)
         x = torch.mean(x, 1) # Not completely certain this is right
         x = self.ln(x)
+        x = self.relu(x)
+        x = self.ln2(x)
+        x = self.relu(x)
         x = self.log_softmax(x)
         return x
 
