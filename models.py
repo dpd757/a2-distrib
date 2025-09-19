@@ -128,12 +128,17 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
     ffnn: FFNN = FFNN()
 
     optimizer = optim.Adam(ffnn.parameters(), lr=args.lr)
+    loss_fn = nn.NLLLoss()
 
     for epoch in range(0, args.num_epochs):
         ex_indices = [i for i in range(0, len(train_exs))]
         random.shuffle(ex_indices)
 
         total_loss = 0
+        batch_i = 0
+        batch_size = 64
+        max_size = len(train_exs)
+
         for idx in ex_indices:
             ex_words = train_exs[idx]
             ex_embedding = [word_embeddings.get_embedding(word) for word in ex_words.words]
@@ -146,14 +151,20 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
             ffnn.zero_grad()
             log_probs = ffnn.forward(stacked)
 
-            loss_fn = nn.NLLLoss()
             loss = loss_fn(log_probs, torch.as_tensor(ex_words.label))
-            #loss = torch.neg(log_probs).dot(y_onehot)
-            total_loss += loss
 
-            # Computes the gradient and takes the optimizer step
-            loss.backward()
-            optimizer.step()
+            batch_i = batch_i + 1
+
+            if batch_i == batch_size or batch_i == max_size:
+
+                total_loss += loss
+
+                # Computes the gradient and takes the optimizer step
+                loss.backward()
+                optimizer.step()
+
+                batch_i = 0
+
         print("epoch: {}, total_loss: {}".format(epoch, total_loss))
 
     neuralSentimentClassifier: NeuralSentimentClassifier = NeuralSentimentClassifier(ffnn, word_embeddings)
