@@ -59,9 +59,14 @@ class FFNN(nn.Module):
     def __init__(self, embedding):
         super().__init__()
         self.embedding = embedding
+        self.ln = nn.Linear(300, 300)
+        self.log_softmax = nn.LogSoftmax(dim=0)
 
     def forward(self, x):
         x = self.embedding(x)
+        x = torch.mean(x, 1) # Not completely certain this is right
+        x = self.ln(x)
+        x = self.log_softmax(x)
         return x
 
 def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_exs: List[SentimentExample],
@@ -91,10 +96,13 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
 
     # Create architecture
     ffnn: FFNN = FFNN(word_embeddings.get_initialized_embedding_layer(True, 0))
-    # optimizer = optim.Adam(ffnn.parameters(), lr=args.lr)
+    optimizer = optim.Adam(ffnn.parameters(), lr=args.lr)
+    loss_fn = nn.NLLLoss()
 
     # Loop over epochs
     for epoch in range(args.num_epochs):
+
+        total_loss = 0.0
 
         # Define training example indices
         epoch_iteration_indices = [i for i in range(len(train_exs))]
@@ -111,5 +119,9 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
         for batch_data, batch_labels in batched_data:
             ffnn.zero_grad()
             log_probs = ffnn.forward(batch_data)
-            # loss.backward()
+            loss = loss_fn(log_probs, batch_labels)
+            total_loss += loss
+            loss.backward()
             optimizer.step()
+
+        print("Total loss on epoch %i: %f" % (epoch, total_loss))
