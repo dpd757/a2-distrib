@@ -135,17 +135,13 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
         #epoch_batch_indices = [[epoch_iteration_indices[i]] for i in epoch_iteration_indices]
 
         batched_data = [[torch.tensor([padded_train_exs_word_indices[index] for index in batch]),
-                         torch.tensor([train_exs[index].label for index in batch])] for batch in epoch_batch_indices]
+                         torch.tensor([train_exs[index].label for index in batch], dtype=torch.float32)] for batch in epoch_batch_indices]
         # torched_data = torch.from_numpy(batched_data)
 
         for batch_data, batch_labels in batched_data:
             ffnn.zero_grad()
             log_probs = ffnn.forward(batch_data)
-            # log_probs = torch.squeeze(log_probs)
-            # log_probs = log_probs.unsqueeze(0)
-            loss = loss_fn(log_probs, batch_labels.to(torch.float32))
-            # loss = loss_fn(log_probs, batch_labels.unsqueeze(1).to(torch.float32))
-            # loss = loss_fn(log_probs, batch_labels)
+            loss = loss_fn(log_probs, batch_labels)
             total_loss += loss
             loss.backward()
             optimizer.step()
