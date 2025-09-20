@@ -59,6 +59,7 @@ class FFNN(nn.Module):
         x = self.relu(x)
         x = self.ln2(x)
         x = self.logit(x)
+        x = x.squeeze()
         return x
 
 
@@ -76,7 +77,7 @@ class NeuralSentimentClassifier(SentimentClassifier):
         self.max_length = max_length
 
     def predict(self, ex_words: List[str], has_typos: bool) -> int:
-        # Will need to step through this and tidy it up - nesting and indexes aren't quite right but should be close
+
         train_exs_word_indices = [self.word_embeddings.word_indexer.index_of(word) for word in ex_words]
         fixed_train_exs_word_indices = [ex if ex != -1 else 1 for ex in train_exs_word_indices]
         padded_train_exs_word_indices = fixed_train_exs_word_indices + [0]*(self.max_length - len(fixed_train_exs_word_indices))
@@ -142,8 +143,9 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
             log_probs = ffnn.forward(batch_data)
             # log_probs = torch.squeeze(log_probs)
             # log_probs = log_probs.unsqueeze(0)
-            # loss = loss_fn(log_probs, batch_labels.to(torch.float32))
-            loss = loss_fn(log_probs, batch_labels.unsqueeze(1).to(torch.float32))
+            loss = loss_fn(log_probs, batch_labels.to(torch.float32))
+            # loss = loss_fn(log_probs, batch_labels.unsqueeze(1).to(torch.float32))
+            # loss = loss_fn(log_probs, batch_labels)
             total_loss += loss
             loss.backward()
             optimizer.step()
