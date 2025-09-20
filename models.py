@@ -103,6 +103,10 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
     #random.seed(12)
     #np.random.seed(12)
     #torch.manual_seed(12)
+    # Hyper-parameters
+    batch_size = 32
+    num_epochs = 10
+    lr = 0.001
 
     # Convert words to word indexes
     train_exs_word_indices = [[word_embeddings.word_indexer.index_of(word) for word in ex.words] for ex in train_exs]
@@ -118,11 +122,11 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
 
     # Create architecture
     ffnn: FFNN = FFNN(word_embeddings.get_initialized_embedding_layer(False, 0))
-    optimizer = optim.Adam(ffnn.parameters(), lr=args.lr)
+    optimizer = optim.Adam(ffnn.parameters(), lr=lr)
     loss_fn = nn.CrossEntropyLoss()
 
     # Loop over epochs
-    for epoch in range(args.num_epochs):
+    for epoch in range(num_epochs):
 
         total_loss = 0.0
 
@@ -131,7 +135,7 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
         random.shuffle(epoch_iteration_indices)
 
         # Define batches
-        epoch_batch_indices = [epoch_iteration_indices[i:i+args.batch_size] for i in range(0, len(epoch_iteration_indices), args.batch_size)]
+        epoch_batch_indices = [epoch_iteration_indices[i:i+batch_size] for i in range(0, len(epoch_iteration_indices), batch_size)]
         #epoch_batch_indices = [[epoch_iteration_indices[i]] for i in epoch_iteration_indices]
 
         batched_data = [[torch.tensor([padded_train_exs_word_indices[index] for index in batch]),
