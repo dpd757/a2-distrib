@@ -119,7 +119,7 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
     # Create architecture
     ffnn: FFNN = FFNN(word_embeddings.get_initialized_embedding_layer(False, 0))
     optimizer = optim.Adam(ffnn.parameters(), lr=args.lr)
-    loss_fn = nn.BCELoss()
+    loss_fn = nn.CrossEntropyLoss()
 
     # Loop over epochs
     for epoch in range(args.num_epochs):
