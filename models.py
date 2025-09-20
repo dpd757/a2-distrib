@@ -3,7 +3,6 @@
 import torch
 import torch.nn as nn
 from torch import optim
-import numpy as np
 import random
 from sentiment_data import *
 
@@ -44,6 +43,24 @@ class TrivialSentimentClassifier(SentimentClassifier):
         """
         return 1
 
+class FFNN(nn.Module):
+    def __init__(self, embedding):
+        super().__init__()
+        self.embedding = embedding
+        self.ln = nn.Linear(300, 300)
+        self.relu = nn.ReLU()
+        self.ln2 = nn.Linear(300, 1)
+        self.logit = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.embedding(x)
+        x = torch.mean(x, 1)
+        x = self.ln(x)
+        x = self.relu(x)
+        x = self.ln2(x)
+        x = self.logit(x)
+        return x
+
 
 class NeuralSentimentClassifier(SentimentClassifier):
     """
@@ -52,27 +69,22 @@ class NeuralSentimentClassifier(SentimentClassifier):
     method and you can optionally override predict_all if you want to use batching at inference time (not necessary,
     but may make things faster!)
     """
-    def __init__(self):
-        raise NotImplementedError
 
-class FFNN(nn.Module):
-    def __init__(self, embedding):
-        super().__init__()
-        self.embedding = embedding
-        self.ln = nn.Linear(300, 300)
-        self.relu = nn.ReLU()
-        self.ln2 = nn.Linear(300, 300)
-        self.log_softmax = nn.LogSoftmax(dim=0)
+    def __init__(self, ffnn: FFNN, word_embeddings: WordEmbeddings, max_length):
+        self.ffnn = ffnn
+        self.word_embeddings = word_embeddings
+        self.max_length = max_length
 
-    def forward(self, x):
-        x = self.embedding(x)
-        x = torch.mean(x, 1) # Not completely certain this is right
-        x = self.ln(x)
-        x = self.relu(x)
-        x = self.ln2(x)
-        x = self.relu(x)
-        x = self.log_softmax(x)
-        return x
+    def predict(self, ex_words: List[str], has_typos: bool) -> int:
+        # Will need to step through this and tidy it up - nesting and indexes aren't quite right but should be close
+        train_exs_word_indices = [self.word_embeddings.word_indexer.index_of(word) for word in ex_words]
+        fixed_train_exs_word_indices = [ex if ex != -1 else 1 for ex in train_exs_word_indices]
+        padded_train_exs_word_indices = fixed_train_exs_word_indices + [0]*(self.max_length - len(fixed_train_exs_word_indices))
+        batch_data = torch.tensor([padded_train_exs_word_indices])
+
+        model = self.ffnn.forward(batch_data)
+
+        return model > 0.5
 
 def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_exs: List[SentimentExample],
                                  word_embeddings: WordEmbeddings, train_model_for_typo_setting: bool) -> NeuralSentimentClassifier:
@@ -86,6 +98,10 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
     and return an instance of that for the typo setting if you want; you're allowed to return two different model types
     for the two settings.
     """
+
+    #random.seed(12)
+    #np.random.seed(12)
+    #torch.manual_seed(12)
 
     # Convert words to word indexes
     train_exs_word_indices = [[word_embeddings.word_indexer.index_of(word) for word in ex.words] for ex in train_exs]
@@ -102,7 +118,7 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
     # Create architecture
     ffnn: FFNN = FFNN(word_embeddings.get_initialized_embedding_layer(True, 0))
     optimizer = optim.Adam(ffnn.parameters(), lr=args.lr)
-    loss_fn = nn.NLLLoss()
+    loss_fn = nn.BCELoss()
 
     # Loop over epochs
     for epoch in range(args.num_epochs):
@@ -124,9 +140,13 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
         for batch_data, batch_labels in batched_data:
             ffnn.zero_grad()
             log_probs = ffnn.forward(batch_data)
-            loss = loss_fn(log_probs, batch_labels)
+            log_probs = torch.squeeze(log_probs)
+            loss = loss_fn(log_probs, batch_labels.to(torch.float32))
             total_loss += loss
             loss.backward()
             optimizer.step()
 
         print("Total loss on epoch %i: %f" % (epoch, total_loss))
+
+
+    return NeuralSentimentClassifier(ffnn, word_embeddings, max_length)
