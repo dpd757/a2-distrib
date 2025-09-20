@@ -116,7 +116,7 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
     padded_train_exs_word_indices = [sublist + [0]*(max_length - len(sublist)) for sublist in fixed_train_exs_word_indices]
 
     # Create architecture
-    ffnn: FFNN = FFNN(word_embeddings.get_initialized_embedding_layer(True, 0))
+    ffnn: FFNN = FFNN(word_embeddings.get_initialized_embedding_layer(False, 0))
     optimizer = optim.Adam(ffnn.parameters(), lr=args.lr)
     loss_fn = nn.BCELoss()
 
