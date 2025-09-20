@@ -140,8 +140,10 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
         for batch_data, batch_labels in batched_data:
             ffnn.zero_grad()
             log_probs = ffnn.forward(batch_data)
-            log_probs = torch.squeeze(log_probs)
-            loss = loss_fn(log_probs, batch_labels.to(torch.float32))
+            # log_probs = torch.squeeze(log_probs)
+            # log_probs = log_probs.unsqueeze(0)
+            # loss = loss_fn(log_probs, batch_labels.to(torch.float32))
+            loss = loss_fn(log_probs, batch_labels.unsqueeze(1).to(torch.float32))
             total_loss += loss
             loss.backward()
             optimizer.step()
